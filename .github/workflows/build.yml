@@ -1,0 +1,78 @@
+name: Build Blossom Kernel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 
+            git 
+            build-essential 
+            clang 
+            lld 
+            libssl-dev 
+            bison 
+            flex 
+            libncurses-dev 
+            libelf-dev 
+            wget
+
+      - name: Set environment variables
+        run: |
+          echo "DEFCONFIG=blossom" >> $GITHUB_ENV
+
+      - name: Check for defconfig file
+        run: |
+          if [ ! -f "arch/arm64/configs/${DEFCONFIG}_defconfig" ]; then
+            echo "Configuration file ${DEFCONFIG}_defconfig not found!"
+            exit 1
+          fi
+
+      - name: Build the kernel and log output
+        run: |
+          set -e  # Завершить выполнение при ошибке
+          mkdir -p out
+          START=$(date +%s)
+
+          {
+            echo "### Kernel Build Started: $(date)"
+            export ARCH=arm64
+            export CLANG_PATH="$PWD/clang/bin"
+            export GCC32_PATH="$PWD/gcc/bin"
+            export GCC64_PATH="$PWD/gcc64/bin"
+            export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
+            export CC=clang
+            export HOSTCC=clang
+            make O=out ${DEFCONFIG}_defconfig
+            make -j$(nproc --all) O=out CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android-
+          } 2>&1 | tee build.log
+
+      - name: Set build info (time, md5)
+        run: |
+          END=$(date +%s)
+          echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+          if [ -f out/arch/arm64/boot/Image.gz ]; then
+            MD5=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)
+            echo "MD5_CHECKSUM=$MD5" >> $GITHUB_ENV
+            echo "ZIP_NAME=Image.gz-dtb" >> $GITHUB_ENV
+          else
+            echo "MD5_CHECKSUM=not_found" >> $GITHUB_ENV
+          fi
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kernel-artifact
+          path: out/arch/arm64/boot/Image.gz
