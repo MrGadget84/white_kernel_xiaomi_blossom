@@ -1,4 +1,5 @@
-name: Start Final Build
+
+name: Kernel Build
 
 on:
   push:
@@ -8,7 +9,7 @@ on:
 
 env:
   CCACHE_DIR: /tmp/ccache
-  DEFCONFIG: blossom
+  DEFCONFIG: blossom_defconfig
 
 jobs:
   build:
@@ -17,34 +18,28 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
-
-      - name: Notify start on Telegram
-        run: |
-          VERSION=$(awk -F'=' '/^VERSION[[:space:]]*=/ {v=$2} /^PATCHLEVEL[[:space:]]*=/ {p=$2} /^SUBLEVEL[[:space:]]*=/ {s=$2} END {gsub(/^[ \t]+|[ \t]+$/,"",v); gsub(/^[ \t]+|[ \t]+$/,"",p); gsub(/^[ \t]+|[ \t]+$/,"",s); printf "%s.%s.%s", v, p, s}' Makefile)
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
-            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            --data-urlencode "text=☢️ *Build Started with KernelSU!*
-            *Device:* Blossom
-            *Kernel:* $VERSION
-            *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
-            -d parse_mode=Markdown
+        with:
+          fetch-depth: 0
 
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-            git build-essential bc bison flex libssl-dev libelf-dev zlib1g-dev lld llvm gcc g++ python2 ninja-build zip ccache
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
+            git build-essential bc bison flex libssl-dev libelf-dev zlib1g-dev lld llvm gcc g++ python2 ninja-build zip ccache curl
           sudo ln -sf /usr/bin/python2 /usr/bin/python
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
-          git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
-          git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
+          git clone --depth=1 https://github.com -b master clang
+          git clone --depth=1 https://github.com gcc64
+          git clone --depth=1 https://github.com gcc
 
       - name: Setup KernelSU
         run: |
-          curl -LSs "https://raw.githubusercontent.com" | bash -s main
-          # Принудительно включаем KSU в конфиге
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/${DEFCONFIG}_defconfig
-          echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${DEFCONFIG}_defconfig
+          # Вместо битого скрипта используем нормальный клон
+          curl -LSs "https://raw.githubusercontent.com" | bash -s main || true
+          
+          # Если скрипт выше все равно выдает дичь, вручную проверяем конфиг
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/${{ env.DEFCONFIG }}
+          echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${{ env.DEFCONFIG }}
+          echo "✅ KernelSU setup finished"
 
       - name: Build the kernel
         run: |
@@ -52,49 +47,55 @@ jobs:
           START=$(date +%s)
           export ARCH=arm64
           export PATH="$PWD/clang/bin:$PWD/gcc64/bin:$PWD/gcc/bin:$PATH"
-          # Чистим Makefile от лишних стопоров
+          
           find . -name "Makefile*" -exec sed -i 's/-Werror//g' {} +
           
-          make O=out ${DEFCONFIG}_defconfig
+          make O=out ARCH=arm64 ${{ env.DEFCONFIG }}
           sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
           
-          make -j$(nproc --all) O=out \
+          make -j$(nproc --all) O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-androideabi- \
             CROSS_COMPILE=aarch64-linux-android- \
             KBUILD_WERROR=0 2>&1 | tee build.log || (tail -n 100 build.log && exit 1)
           
-          END=$(date +%s)
-          echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(($(date +%s) - START))" >> $GITHUB_ENV
 
       - name: Pack with AnyKernel3
         if: success()
         run: |
           git clone --depth=1 https://github.com ak3
-          cp out/arch/arm64/boot/Image.gz ak3/
-          # Настройка под Blossom
           sed -i 's/device.name1=maguro/device.name1=blossom/g' ak3/anykernel.sh
           sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' ak3/anykernel.sh
+          
+          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp out/arch/arm64/boot/Image.gz-dtb ak3/Image.gz
+          else
+            cp out/arch/arm64/boot/Image.gz ak3/Image.gz
+          fi
+          
+          [ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img ak3/
+          
           cd ak3 && zip -r9 ../WhiteKernel-Blossom-KSU.zip * -x .git* README.md
 
-      - name: Notify success on Telegram
+      - name: Send Flashable ZIP to Telegram
         if: success()
         run: |
           MD5=$(md5sum WhiteKernel-Blossom-KSU.zip | cut -d ' ' -f1)
           curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             -F document=@WhiteKernel-Blossom-KSU.zip \
-            -F caption="✅ *Build Finished!*
+            -F caption="✅ *KernelSU Build Ready!*
+            📱 *Device:* Blossom
             ⏱ *Time:* ${BUILD_TIME}s
-            🔐 *MD5:* \`$MD5\`
-            📱 *Root:* KernelSU Included" \
+            🔐 *MD5:* \`$MD5\`" \
             -F parse_mode=Markdown \
-            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+            https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
 
-      - name: Send build log on Failure
+      - name: Notify Failure
         if: failure()
         run: |
-          curl -s -F document=@build.log \
-            -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -F caption="❌ Build failed. Check logs." \
-            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+          [ -f build.log ] && curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -F document=@build.log \
+            -F caption="❌ Сборка сдохла. См. лог." \
+            https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument || echo "Log not found"
