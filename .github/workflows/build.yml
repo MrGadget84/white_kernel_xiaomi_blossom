@@ -38,38 +38,38 @@ jobs:
             *Kernel Version:* $VERSION
             *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
             -d parse_mode=Markdown
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-            git build-essential bc bison flex \
-            libssl-dev libelf-dev zlib1g-dev \
-            lld llvm gcc g++ \
-            python2 ninja-build zip ccache
-          sudo ln -sf /usr/bin/ld.lld /usr/bin/ld || true
-          sudo ln -sf "/usr/bin/python2" /usr/bin/python
-          git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-5484270 clang
-          git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
-          git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
-      - name: Build the kernel and log output
+            - name: Build the kernel and log output
         run: |
           mkdir -p out
           START=$(date +%s)
           {
-            echo "### Kernel Build Started: $(date)"
             export ARCH=arm64
             export CLANG_PATH="$PWD/clang/bin"
             export GCC32_PATH="$PWD/gcc/bin"
             export GCC64_PATH="$PWD/gcc64/bin"
             export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
-            export CC=clang
-            export HOSTCC=clang
-            find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' {} +
-            find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=1024/-Wframe-larger-than=8192/g' {} +
+            
+            # Убираем только проблемный флаг в основном Makefile, не трогая скрипты
+            sed -i 's/-Werror//g' Makefile
+            sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' Makefile
+            
+            # Генерируем конфиг
             make O=out ${DEFCONFIG}_defconfig
+            
+            # Правим лимит в самом конфиге
             sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
-            make -j$(nproc --all) O=out CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android-  KCFLAGS="-Wno-error -Wno-frame-larger-than"
+
+            # Сборка с разделением: ядро компилируем скачанным Clang, 
+            # а вспомогательные скрипты (HOSTCC) — стандартным GCC сервера
+            make -j$(nproc --all) O=out \
+              CC=clang \
+              HOSTCC=gcc \
+              CLANG_TRIPLE=aarch64-linux-gnu- \
+              CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+              CROSS_COMPILE=aarch64-linux-android- \
+              KCFLAGS="-Wno-error -Wno-frame-larger-than"
           } 2>&1 | tee build.log
+
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
