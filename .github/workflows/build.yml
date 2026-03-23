@@ -32,7 +32,7 @@ jobs:
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
             -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             --data-urlencode "text=☢️ *Kernel Build Started!*
-            *Device:* Blossom OSS Vendor
+            *Device:* Blossom
             *Arch:* arm64
             *Defconfig:* $DEFCONFIG
             *Kernel Version:* $VERSION
@@ -48,7 +48,7 @@ jobs:
             python2 ninja-build zip ccache
           sudo ln -sf /usr/bin/ld.lld /usr/bin/ld || true
           sudo ln -sf "/usr/bin/python2" /usr/bin/python
-          git clone --depth=1 https://github.com/dandelion64-Archives/clang-r353983c clang
+          git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-5484270 clang
           git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
           git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
       - name: Build the kernel and log output
