@@ -1,4 +1,4 @@
-name: Build WhiteKernel Blossom
+name: Build WhiteKernel Blossom with KSU & Telegram
 
 on:
   workflow_dispatch:
@@ -24,15 +24,17 @@ jobs:
     - name: Setup KernelSU
       run: |
         curl -LSs "https://raw.githubusercontent.com" | bash -s main
-        # ЗАМЕНИ blossom_defconfig на свое имя файла, если оно другое!
+        # Замени blossom_defconfig на свой, если он другой
         DEFCONFIG="arch/arm64/configs/blossom_defconfig"
-        echo "CONFIG_KSU=y" >> $DEFCONFIG
-        echo "CONFIG_OVERLAY_FS=y" >> $DEFCONFIG
+        if [ -f "$DEFCONFIG" ]; then
+          echo "CONFIG_KSU=y" >> $DEFCONFIG
+          echo "CONFIG_OVERLAY_FS=y" >> $DEFCONFIG
+        fi
 
     - name: Build Kernel
       run: |
         export ARCH=arm64
-        # Здесь также замени blossom_defconfig на свое имя
+        # Замени blossom_defconfig здесь тоже, если нужно
         make O=out ARCH=arm64 blossom_defconfig
         make -j$(nproc --all) O=out ARCH=arm64 \
              CC=clang \
@@ -44,20 +46,16 @@ jobs:
       run: |
         git clone --depth=1 https://github.com
         cd AnyKernel3
-        # Настройка под девайс
         sed -i 's/device.name1=maguro/device.name1=blossom/g' anykernel.sh
         sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' anykernel.sh
         
-        # Проверка и копирование ядра
         if [ -f ../out/arch/arm64/boot/Image.gz-dtb ]; then
           cp ../out/arch/arm64/boot/Image.gz-dtb ./Image.gz
         else
           cp ../out/arch/arm64/boot/Image.gz ./Image.gz
         fi
         
-        # Копируем dtbo если собрался
         [ -f ../out/arch/arm64/boot/dtbo.img ] && cp ../out/arch/arm64/boot/dtbo.img .
-        
         zip -r9 ../WhiteKernel-KSU-Blossom.zip * -x .git* README.md
 
     - name: Send to Telegram (Success)
@@ -73,11 +71,4 @@ jobs:
       run: |
         curl -s -X POST "https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
         -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-        -d text="❌ Ошибка сборки! Проверь логи в GitHub Actions (Workflow)."
-
-    - name: Upload Artifact
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: WhiteKernel-KSU-Blossom
-        path: WhiteKernel-KSU-Blossom.zip
+        -d text="❌ Ошибка сборки! Проверь логи во вкладке Actions."
