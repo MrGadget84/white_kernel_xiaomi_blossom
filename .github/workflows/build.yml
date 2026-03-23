@@ -55,21 +55,26 @@ jobs:
         run: |
           mkdir -p out
           START=$(date +%s)
+          export ARCH=arm64
+          export CLANG_PATH="$PWD/clang/bin"
+          export GCC32_PATH="$PWD/gcc/bin"
+          export GCC64_PATH="$PWD/gcc64/bin"
+          export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
+
+          # 1. УДАЛЯЕМ МУСОРНЫЕ ФЛАГИ ИЗ ВСЕХ MAKEFILE (очистка от прошлых ошибок)
+          find . -name "Makefile*" -type f -exec sed -i 's/-implicit-function-declaration//g' {} +
+          find . -name "Makefile*" -type f -exec sed -i 's/=return-type//g' {} +
+          find . -name "Makefile*" -type f -exec sed -i 's/=unknown-warning-option//g' {} +
+          find . -name "Makefile*" -type f -exec sed -i 's/-Werror//g' {} +
+
           {
-            echo "### Kernel Build Started: $(date)"
-            export ARCH=arm64
-            export CLANG_PATH="$PWD/clang/bin"
-            export GCC32_PATH="$PWD/gcc/bin"
-            export GCC64_PATH="$PWD/gcc64/bin"
-            export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
-            export CC=clang
-            export HOSTCC=clang
-            find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' {} +
-            find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=1024/-Wframe-larger-than=8192/g' {} +
-            find drivers/gpu/mediatek -name "Makefile*" -exec sed -i 's/-Werror//g' {} +
-            find . -name "Makefile" -type f -exec sed -i 's/-Werror//g' {} +
+            # 2. ГЕНЕРИРУЕМ КОНФИГ
             make O=out ${DEFCONFIG}_defconfig
-            sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
+            
+            # 3. ПРАВИМ ЛИМИТ СТЕКА В КОНФИГЕ
+            sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
+
+            # 4. ЧИСТАЯ СБОРКА
             make -j$(nproc --all) O=out \
               CC=clang \
               HOSTCC=gcc \
@@ -79,7 +84,8 @@ jobs:
               CROSS_COMPILE=aarch64-linux-android- \
               KBUILD_WERROR=0 \
               KCFLAGS="-w -Wno-error -fno-strict-aliasing"
-          } 2>&1 | tee build.log || (echo "------- ERROR LOG START -------" && tail -n 100 build.log && exit 1)
+          } 2>&1 | tee build.log || (echo "------- ERROR LOG -------" && tail -n 100 build.log && exit 1)
+
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
