@@ -1,19 +1,14 @@
-import requests
-import sys
+import os
+from telegram import Bot
 
-def send_message(token, chat_id, message):
-    url = f"https://api.telegram.org/bot{8671753278:AAEiwDRESfK0k2bi-B6PdCGbROBqjXIzfzU}/sendMessage"
-    payload = {
-        'chat_id': 8671753278:AAEiwDRESfK0k2bi-B6PdCGbROBqjXIzfzU,
-        'text': message,
-        'parse_mode': 'Markdown'
-    }
-    response = requests.post(url, json=payload)
-    return response.json()
+TOKEN = '8671753278:AAEiwDRESfK0k2bi-B6PdCGbROBqjXIzfzU'
+CHAT_ID = '8671753278'
+
+bot = Bot(token=TOKEN)
+
+def send_message(message):
+    bot.send_message(chat_id=CHAT_ID, text=message)
 
 if __name__ == "__main__":
-    bot_token = sys.argv[1]
-    chat_id = sys.argv[2]
-    message = sys.argv[3]
-    
-    send_message(bot_token, chat_id, message)
+    send_message("Сборка ядра началась!")
+
