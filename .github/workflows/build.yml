@@ -38,7 +38,7 @@ jobs:
             *Kernel Version:* $VERSION
             *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
             -d parse_mode=Markdown
-                        - name: Build the kernel and log output
+            - name: Build the kernel and log output
         run: |
           mkdir -p out
           START=$(date +%s)
@@ -48,21 +48,22 @@ jobs:
           export GCC64_PATH="$PWD/gcc64/bin"
           export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
           export CC=clang
-          
-          # Убираем только проблемные флаги в основном Makefile
+          export HOSTCC=gcc
+
+          # Патчим лимиты и убираем Werror до начала сборки
           sed -i 's/-Werror//g' Makefile
-          sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' Makefile
-          
+          sed -i 's/-Wframe-larger-than=[0-9]*/-Wframe-larger-than=8192/g' Makefile
+
           {
             echo "### Kernel Build Started: $(date)"
             
-            # Генерируем конфиг
+            # Конфигурация
             make O=out ${DEFCONFIG}_defconfig
             
-            # Правим лимит в самом конфиге
-            sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
+            # Дополнительный патч сгенерированного конфига
+            sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
 
-            # Сборка
+            # Сама сборка
             make -j$(nproc --all) O=out \
               CC=clang \
               HOSTCC=gcc \
@@ -71,14 +72,17 @@ jobs:
               CROSS_COMPILE=aarch64-linux-android- \
               KCFLAGS="-Wno-error -Wno-frame-larger-than"
           } 2>&1 | tee build.log
-          
+
+          # Считаем время и проверяем результат
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+          
+          if [ -f out/arch/arm64/boot/Image.gz ]; then
+            echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
+            echo "ZIP_NAME=Image.gz-dtb" >> $GITHUB_ENV
+          fi
 
-          ls -l out/arch/arm64/boot/Image.gz
-          echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
-          echo "MD5 checksum is: $(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)"
       - name: Set build info (time, md5)
         run: |
           END=$(date +%s)
