@@ -1,4 +1,4 @@
-name: Build WhiteKernel Blossom with KSU & Telegram
+name: Build WhiteKernel Blossom
 
 on:
   workflow_dispatch:
@@ -6,6 +6,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Выносим секреты в переменные окружения один раз на весь джоб
+    env:
+      BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
     steps:
     - name: Checkout Kernel Source
       uses: actions/checkout@v4
@@ -17,24 +22,21 @@ jobs:
 
     - name: Notify Telegram (Start)
       run: |
-        curl -s -X POST "https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-        -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-        -d text="🚀 Сборка WhiteKernel для Blossom (MT6765) запущена! Включаю KernelSU..."
+        curl -s -X POST "https://api.telegram.org{BOT_TOKEN}/sendMessage" \
+        -d chat_id="${CHAT_ID}" \
+        -d text="🚀 Сборка запущена! KernelSU ставим, ядро Blossom (MT6765) собираем."
 
     - name: Setup KernelSU
       run: |
         curl -LSs "https://raw.githubusercontent.com" | bash -s main
-        # Замени blossom_defconfig на свой, если он другой
+        # Проверь, чтобы blossom_defconfig реально был в arch/arm64/configs/
         DEFCONFIG="arch/arm64/configs/blossom_defconfig"
-        if [ -f "$DEFCONFIG" ]; then
-          echo "CONFIG_KSU=y" >> $DEFCONFIG
-          echo "CONFIG_OVERLAY_FS=y" >> $DEFCONFIG
-        fi
+        echo "CONFIG_KSU=y" >> $DEFCONFIG
+        echo "CONFIG_OVERLAY_FS=y" >> $DEFCONFIG
 
     - name: Build Kernel
       run: |
         export ARCH=arm64
-        # Замени blossom_defconfig здесь тоже, если нужно
         make O=out ARCH=arm64 blossom_defconfig
         make -j$(nproc --all) O=out ARCH=arm64 \
              CC=clang \
@@ -49,26 +51,28 @@ jobs:
         sed -i 's/device.name1=maguro/device.name1=blossom/g' anykernel.sh
         sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' anykernel.sh
         
+        # Копируем что собралось
         if [ -f ../out/arch/arm64/boot/Image.gz-dtb ]; then
           cp ../out/arch/arm64/boot/Image.gz-dtb ./Image.gz
         else
           cp ../out/arch/arm64/boot/Image.gz ./Image.gz
         fi
-        
         [ -f ../out/arch/arm64/boot/dtbo.img ] && cp ../out/arch/arm64/boot/dtbo.img .
-        zip -r9 ../WhiteKernel-KSU-Blossom.zip * -x .git* README.md
+        
+        zip -r9 ../WhiteKernel-Blossom.zip *
 
-    - name: Send to Telegram (Success)
+    - name: Send Document to Telegram
       if: success()
       run: |
-        curl -v -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-             -F "document=@WhiteKernel-KSU-Blossom.zip" \
-             -F "caption=✅ Ядро собрано! Устройство: Blossom. Root: KernelSU включен." \
-             "https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument"
+        curl -v -F "chat_id=${CHAT_ID}" \
+             -F "document=@WhiteKernel-Blossom.zip" \
+             -F "caption=✅ Готово! Ядро Blossom с KernelSU." \
+             "https://api.telegram.org{BOT_TOKEN}/sendDocument"
 
     - name: Notify Telegram (Failure)
       if: failure()
       run: |
-        curl -s -X POST "https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-        -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-        -d text="❌ Ошибка сборки! Проверь логи во вкладке Actions."
+        curl -s -X POST "https://api.telegram.org{BOT_TOKEN}/sendMessage" \
+        -d chat_id="${CHAT_ID}" \
+        -d text="❌ Сборка обосралась. Иди смотри логи в Actions."
+
