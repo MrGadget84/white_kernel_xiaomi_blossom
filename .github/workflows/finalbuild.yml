@@ -17,14 +17,14 @@ jobs:
 
     - name: Notify Telegram (Start)
       run: |
-        curl -s -X POST https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendMessage \
-        -d chat_id=${{ secrets.TG_CHAT_ID }} \
-        -d text="🚀 Сборка WhiteKernel для Blossom запущена! Начинаю установку KernelSU..."
+        curl -s -X POST https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+        -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+        -d text="🚀 Сборка WhiteKernel для Blossom (MT6765) запущена! Включаю KernelSU..."
 
     - name: Setup KernelSU
       run: |
         curl -LSs "https://raw.githubusercontent.com" | bash -s main
-        # Замени blossom_defconfig на реальное имя твоего конфига
+        # Проверь имя конфига! Если он в подпапке, укажи полный путь, например: arch/arm64/configs/vendor/blossom_defconfig
         DEFCONFIG="arch/arm64/configs/blossom_defconfig"
         echo "CONFIG_KSU=y" >> $DEFCONFIG
         echo "CONFIG_OVERLAY_FS=y" >> $DEFCONFIG
@@ -32,6 +32,7 @@ jobs:
     - name: Build Kernel
       run: |
         export ARCH=arm64
+        # Здесь подставь свое имя конфига вместо blossom_defconfig
         make O=out ARCH=arm64 blossom_defconfig
         make -j$(nproc --all) O=out ARCH=arm64 \
              CC=clang \
@@ -39,27 +40,41 @@ jobs:
              CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
     - name: Pack AnyKernel3
+      if: success()
       run: |
         git clone --depth=1 https://github.com
         cd AnyKernel3
         sed -i 's/device.name1=maguro/device.name1=blossom/g' anykernel.sh
         sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' anykernel.sh
         
-        # Выбор ядра (Image.gz-dtb или Image.gz)
-        [ -f ../out/arch/arm64/boot/Image.gz-dtb ] && cp ../out/arch/arm64/boot/Image.gz-dtb ./Image.gz || cp ../out/arch/arm64/boot/Image.gz ./Image.gz
+        # Берем Image.gz-dtb если есть, иначе обычный Image.gz
+        if [ -f ../out/arch/arm64/boot/Image.gz-dtb ]; then
+          cp ../out/arch/arm64/boot/Image.gz-dtb ./Image.gz
+        else
+          cp ../out/arch/arm64/boot/Image.gz ./Image.gz
+        fi
+        
         [ -f ../out/arch/arm64/boot/dtbo.img ] && cp ../out/arch/arm64/boot/dtbo.img .
         
         zip -r9 ../WhiteKernel-KSU-Blossom.zip * -x .git* README.md
 
-    - name: Send to Telegram (Finish)
+    - name: Send to Telegram (Success)
       if: success()
       run: |
-        curl -v -F "chat_id=${{ secrets.TG_CHAT_ID }}" \
+        curl -v -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
              -F "document=@WhiteKernel-KSU-Blossom.zip" \
-             -F "caption=✅ Ядро успешно собрано! Устройство: Blossom (MT6765). Root: KernelSU включен." \
-             https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument
+             -F "caption=✅ Ядро собрано! Устройство: Blossom. Root: KernelSU готов." \
+             https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+
+    - name: Notify Telegram (Failure)
+      if: failure()
+      run: |
+        curl -s -X POST https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+        -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+        -d text="❌ Ошибка сборки! Проверь логи в GitHub Actions."
 
     - name: Upload Artifact
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: WhiteKernel-KSU-Blossom
