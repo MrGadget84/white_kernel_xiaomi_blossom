@@ -68,7 +68,7 @@ jobs:
             find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=1024/-Wframe-larger-than=8192/g' {} +
             make O=out ${DEFCONFIG}_defconfig
             sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
-            make -j$(nproc --all) O=out CC=clang HOSTCC=gcc HOSTCXX=g++ CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android- KCFLAGS="-Wno-error -Wno-frame-larger-than" HOSTCFLAGS="-Wno-error"
+            make -j$(nproc --all) O=out CC=clang HOSTCC=gcc HOSTCXX=g++ CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android- KCFLAGS="-Wno-error -Wno-unknown-warning-option" HOSTCFLAGS="-Wno-error" CONFIG_DEBUG_SECTION_MISMATCH=y
           } 2>&1 | tee build.log
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
