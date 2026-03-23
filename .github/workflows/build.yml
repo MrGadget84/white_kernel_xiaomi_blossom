@@ -38,7 +38,21 @@ jobs:
             *Kernel Version:* $VERSION
             *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
             -d parse_mode=Markdown
-            - name: Build the kernel and log output
+            - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git build-essential bc bison flex \
+            libssl-dev libelf-dev zlib1g-dev \
+            lld llvm gcc g++ \
+            python2 ninja-build zip ccache
+          sudo ln -sf /usr/bin/ld.lld /usr/bin/ld || true
+          sudo ln -sf "/usr/bin/python2" /usr/bin/python
+          git clone --depth=1 https://github.com clang
+          git clone --depth=1 https://github.com gcc64
+          git clone --depth=1 https://github.com gcc
+
+      - name: Build the kernel and log output
         run: |
           mkdir -p out
           START=$(date +%s)
@@ -50,20 +64,20 @@ jobs:
           export CC=clang
           export HOSTCC=gcc
 
-          # Патчим лимиты и убираем Werror до начала сборки
-          sed -i 's/-Werror//g' Makefile
-          sed -i 's/-Wframe-larger-than=[0-9]*/-Wframe-larger-than=8192/g' Makefile
+          # Удаляем флаг -Werror и увеличиваем лимит стека во всех Makefile
+          find . -name "Makefile" -type f -exec sed -i 's/-Werror//g' {} +
+          find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=[0-9]*/-Wframe-larger-than=8192/g' {} +
 
           {
             echo "### Kernel Build Started: $(date)"
             
-            # Конфигурация
+            # Генерация конфига
             make O=out ${DEFCONFIG}_defconfig
             
-            # Дополнительный патч сгенерированного конфига
+            # Принудительно правим лимит в сгенерированном конфиге
             sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
 
-            # Сама сборка
+            # Запуск компиляции
             make -j$(nproc --all) O=out \
               CC=clang \
               HOSTCC=gcc \
@@ -73,16 +87,22 @@ jobs:
               KCFLAGS="-Wno-error -Wno-frame-larger-than"
           } 2>&1 | tee build.log
 
-          # Считаем время и проверяем результат
+          # Сбор данных о результате для следующих шагов
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
           
           if [ -f out/arch/arm64/boot/Image.gz ]; then
-            echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
+            MD5=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)
+            echo "MD5_CHECKSUM=$MD5" >> $GITHUB_ENV
             echo "ZIP_NAME=Image.gz-dtb" >> $GITHUB_ENV
+            echo "MD5 checksum is: $MD5"
+          else
+            echo "MD5_CHECKSUM=not_found" >> $GITHUB_ENV
+            echo "Build failed: Image.gz not found"
+            exit 1
           fi
-
+      
       - name: Set build info (time, md5)
         run: |
           END=$(date +%s)
