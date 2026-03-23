@@ -49,7 +49,7 @@ jobs:
           echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${{ env.DEFCONFIG }}
           echo "✅ KernelSU setup finished"
 
-     - name: Notify start KSU on Telegram
+      - name: Notify start KSU on Telegram
         run: |
           VERSION=$(awk -F'=' '
           /^VERSION[[:space:]]*=/ {v=$2}
@@ -84,6 +84,7 @@ jobs:
           git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
           git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
           git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
+          
       - name: Build the kernel and log output
         run: |
           mkdir -p out
@@ -127,57 +128,36 @@ jobs:
             exit 1
           fi
 
-      - name: Upload kernel image as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-blossom-${{ github.run_number }}
-          path: ${{ env.IMAGE_FOUND }}
-
-      - name: Zip kernel modules
+      - name: Pack with AnyKernel3
         if: success()
         run: |
-          mkdir -p out/kernel-modules
-          find out -name '*.ko' -print0 \
-            | xargs -0 cp -v -t out/kernel-modules
-          cd out/kernel-modules
-          zip -j kernel-modules.zip *.ko
-      - name: Upload modiles zip as artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: modules-${{ env.ZIP_NAME }}-${{ github.run_number }}
-          path: out/kernel-modules/kernel-modules.zip
-          retention-days: 14
+          git clone --depth=1 https://github.com/Sakurajima07/AnyKernel3_blossom ak3
+          sed -i 's/device.name1=maguro/device.name1=blossom/g' ak3/anykernel.sh
+          sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' ak3/anykernel.sh
+          
+          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp out/arch/arm64/boot/Image.gz-dtb ak3/Image.gz
+          else
+            cp out/arch/arm64/boot/Image.gz ak3/Image.gz
+          fi
+          
+          [ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img ak3/
+          
+          cd ak3 && zip -r9 ../WhiteKernel-Blossom-KSU.zip * -x .git* README.md
 
-      - name: Upload build log as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-${{ github.run_number }}
-          path: build.log
-          retention-days: 14
-
-      - name: Notify success on Telegram
+      - name: Send Flashable ZIP to Telegram
         if: success()
         run: |
-          CAPTION="✅ *Build Successful!*
-          📅 *Date:* $BUILD_DATE
-          ⏱ *Time:* ${BUILD_TIME}s
-          🔐 *MD5:* \`${MD5_CHECKSUM}\`"
+          MD5=$(md5sum WhiteKernel-Blossom-KSU.zip | cut -d ' ' -f1)
           curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -F document=@out/arch/arm64/boot/Image.gz \
-            -F caption="$CAPTION" \
+            -F document=@WhiteKernel-Blossom-KSU.zip \
+            -F caption="✅ *KernelSU Build Ready!*
+            📱 *Device:* Blossom
+            ⏱ *Time:* ${BUILD_TIME}s
+            🔐 *MD5:* \`$MD5\`" \
             -F parse_mode=Markdown \
-            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
-      - name: Send build artifacts to Telegram
-        if: success()
-        run: |
-          curl -s -F document=@out/arch/arm64/boot/dts/mediatek/"${DEFCONFIG}.dtb" \
-            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -F caption="DTB"
-          curl -s -F document=@out/kernel-modules/kernel-modules.zip \
-            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -F caption="Kernel Modules ZIP"
+            https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+
       - name: Notify failure on Telegram
         if: failure()
         run: |
