@@ -48,7 +48,7 @@ jobs:
             python2 ninja-build zip ccache
           sudo ln -sf /usr/bin/ld.lld /usr/bin/ld || true
           sudo ln -sf "/usr/bin/python2" /usr/bin/python
-          git clone --depth=1 https://github.com/AlpacaGang/clang clang
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
           git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
           git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
       - name: Build the kernel and log output
