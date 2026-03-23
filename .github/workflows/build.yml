@@ -38,20 +38,23 @@ jobs:
             *Kernel Version:* $VERSION
             *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
             -d parse_mode=Markdown
-            - name: Build the kernel and log output
+                        - name: Build the kernel and log output
         run: |
           mkdir -p out
           START=$(date +%s)
+          export ARCH=arm64
+          export CLANG_PATH="$PWD/clang/bin"
+          export GCC32_PATH="$PWD/gcc/bin"
+          export GCC64_PATH="$PWD/gcc64/bin"
+          export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
+          export CC=clang
+          
+          # Убираем только проблемные флаги в основном Makefile
+          sed -i 's/-Werror//g' Makefile
+          sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' Makefile
+          
           {
-            export ARCH=arm64
-            export CLANG_PATH="$PWD/clang/bin"
-            export GCC32_PATH="$PWD/gcc/bin"
-            export GCC64_PATH="$PWD/gcc64/bin"
-            export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
-            
-            # Убираем только проблемный флаг в основном Makefile, не трогая скрипты
-            sed -i 's/-Werror//g' Makefile
-            sed -i 's/-Wframe-larger-than=2048/-Wframe-larger-than=8192/g' Makefile
+            echo "### Kernel Build Started: $(date)"
             
             # Генерируем конфиг
             make O=out ${DEFCONFIG}_defconfig
@@ -59,8 +62,7 @@ jobs:
             # Правим лимит в самом конфиге
             sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
 
-            # Сборка с разделением: ядро компилируем скачанным Clang, 
-            # а вспомогательные скрипты (HOSTCC) — стандартным GCC сервера
+            # Сборка
             make -j$(nproc --all) O=out \
               CC=clang \
               HOSTCC=gcc \
@@ -69,10 +71,11 @@ jobs:
               CROSS_COMPILE=aarch64-linux-android- \
               KCFLAGS="-Wno-error -Wno-frame-larger-than"
           } 2>&1 | tee build.log
-
+          
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+
           ls -l out/arch/arm64/boot/Image.gz
           echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
           echo "MD5 checksum is: $(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)"
