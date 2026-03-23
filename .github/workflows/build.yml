@@ -51,8 +51,19 @@ jobs:
           git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
           git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
           git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
-      - name: Build the kernel and log output
-        run: |
+
+        - name: Setup KernelSU
+         run: |
+        cd $GITHUB_WORKSPACE
+        # Качаем и запускаем скрипт установки KernelSU
+        curl -LSs "https://raw.githubusercontent.com" | bash -s main
+        
+        # Включаем нужные конфиги в твоем defconfig (замени blossom_defconfig на свой)
+        echo "CONFIG_KSU=y" >> arch/arm64/configs/blossom_defconfig
+        echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/blossom_defconfig
+
+        - name: Build the kernel and log output
+          run: |
           mkdir -p out
           START=$(date +%s)
           export ARCH=arm64
