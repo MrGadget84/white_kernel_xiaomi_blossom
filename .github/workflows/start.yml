@@ -1,0 +1,100 @@
+name: Kernel Build
+
+on:
+  push:
+    branches:
+      - perf
+  workflow_dispatch:
+
+env:
+  CCACHE_DIR: /tmp/ccache
+  DEFCONFIG: blossom
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Notify start on Telegram
+        run: |
+          VERSION=$(awk -F'=' '/^VERSION[[:space:]]*=/ {v=$2} /^PATCHLEVEL[[:space:]]*=/ {p=$2} /^SUBLEVEL[[:space:]]*=/ {s=$2} END {gsub(/^[ \t]+|[ \t]+$/,"",v); gsub(/^[ \t]+|[ \t]+$/,"",p); gsub(/^[ \t]+|[ \t]+$/,"",s); printf "%s.%s.%s", v, p, s}' Makefile)
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            --data-urlencode "text=☢️ *Build Started with KernelSU!*
+            *Device:* Blossom
+            *Kernel:* $VERSION
+            *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
+            -d parse_mode=Markdown
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git build-essential bc bison flex libssl-dev libelf-dev zlib1g-dev lld llvm gcc g++ python2 ninja-build zip ccache
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
+          git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
+          git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
+
+      - name: Setup KernelSU
+        run: |
+          curl -LSs "https://raw.githubusercontent.com" | bash -s main
+          # Принудительно включаем KSU в конфиге
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/${DEFCONFIG}_defconfig
+          echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${DEFCONFIG}_defconfig
+
+      - name: Build the kernel
+        run: |
+          mkdir -p out
+          START=$(date +%s)
+          export ARCH=arm64
+          export PATH="$PWD/clang/bin:$PWD/gcc64/bin:$PWD/gcc/bin:$PATH"
+          # Чистим Makefile от лишних стопоров
+          find . -name "Makefile*" -exec sed -i 's/-Werror//g' {} +
+          
+          make O=out ${DEFCONFIG}_defconfig
+          sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
+          
+          make -j$(nproc --all) O=out \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+            CROSS_COMPILE=aarch64-linux-android- \
+            KBUILD_WERROR=0 2>&1 | tee build.log || (tail -n 100 build.log && exit 1)
+          
+          END=$(date +%s)
+          echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+
+      - name: Pack with AnyKernel3
+        if: success()
+        run: |
+          git clone --depth=1 https://github.com ak3
+          cp out/arch/arm64/boot/Image.gz ak3/
+          # Настройка под Blossom
+          sed -i 's/device.name1=maguro/device.name1=blossom/g' ak3/anykernel.sh
+          sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' ak3/anykernel.sh
+          cd ak3 && zip -r9 ../WhiteKernel-Blossom-KSU.zip * -x .git* README.md
+
+      - name: Notify success on Telegram
+        if: success()
+        run: |
+          MD5=$(md5sum WhiteKernel-Blossom-KSU.zip | cut -d ' ' -f1)
+          curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -F document=@WhiteKernel-Blossom-KSU.zip \
+            -F caption="✅ *Build Finished!*
+            ⏱ *Time:* ${BUILD_TIME}s
+            🔐 *MD5:* \`$MD5\`
+            📱 *Root:* KernelSU Included" \
+            -F parse_mode=Markdown \
+            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+
+      - name: Send build log on Failure
+        if: failure()
+        run: |
+          curl -s -F document=@build.log \
+            -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -F caption="❌ Build failed. Check logs." \
+            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
