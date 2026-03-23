@@ -114,6 +114,7 @@ jobs:
           ls -l out/arch/arm64/boot/Image.gz
           echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
           echo "MD5 checksum is: $(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)"
+      
       - name: Set build info (time, md5)
         run: |
           IMAGE_PATH=$(find out -name "Image.gz" | head -n 1)
@@ -128,33 +129,54 @@ jobs:
             exit 1
           fi
 
-      - name: Pack with AnyKernel3
+      - name: Create AnyKernel3 Zip
         if: success()
         run: |
+          # 1. Клонируем AnyKernel3 правильно
           git clone --depth=1 https://github.com/Sakurajima07/AnyKernel3_blossom ak3
-          sed -i 's/device.name1=maguro/device.name1=blossom/g' ak3/anykernel.sh
-          sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' ak3/anykernel.sh
           
-          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-            cp out/arch/arm64/boot/Image.gz-dtb ak3/Image.gz
-          else
-            cp out/arch/arm64/boot/Image.gz ak3/Image.gz
+          # 2. Ищем ядро (Image.gz) в папке out
+          # Используем поиск, чтобы не ошибиться с подпапками
+          IMAGE=$(find out/arch/arm64/boot -name "Image.gz" | head -n 1)
+          
+          if [ -z "$IMAGE" ]; then
+            echo "❌ ОШИБКА: Image.gz не найден в out/arch/arm64/boot!"
+            ls -R out/
+            exit 1
           fi
           
-          [ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img ak3/
-          
-          cd ak3 && zip -r9 ../WhiteKernel-Blossom-KSU.zip * -x .git* README.md
+          # 3. Копируем ядро в папку упаковщика
+          cp "$IMAGE" ak3/Image.gz
+          echo "✅ Image.gz скопирован из $IMAGE"
 
-      - name: Send Flashable ZIP to Telegram
+          # 4. Настраиваем AnyKernel3 под Blossom
+          cd ak3
+          sed -i 's/device.name1=maguro/device.name1=blossom/g' anykernel.sh
+          sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' anykernel.sh
+          
+          # 5. Создаем архив
+          zip -r9 ../blossom-kernel-flashable.zip * -x .git* README.md
+          cd ..
+          
+          # 6. Считаем MD5 для отчета
+          echo "ZIP_MD5=$(md5sum blossom-kernel-flashable.zip | cut -d ' ' -f1)" >> $GITHUB_ENV
+
+      - name: Upload Flashable ZIP Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blossom-Kernel-Flashable-Zip
+          path: blossom-kernel-flashable.zip
+
+      - name: Notify success on Telegram
         if: success()
         run: |
-          MD5=$(md5sum WhiteKernel-Blossom-KSU.zip | cut -d ' ' -f1)
           curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -F document=@WhiteKernel-Blossom-KSU.zip \
-            -F caption="✅ *KernelSU Build Ready!*
-            📱 *Device:* Blossom
+            -F document=@blossom-kernel-flashable.zip \
+            -F caption="✅ *Build Successful!*
             ⏱ *Time:* ${BUILD_TIME}s
-            🔐 *MD5:* \`$MD5\`" \
+            🔐 *MD5:* \`${ZIP_MD5}\`
+            📱 *Device:* Blossom" \
             -F parse_mode=Markdown \
             https://api.telegram.org{{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
 
