@@ -1,3 +1,4 @@
+
 name: Build Linux Kernel
 
 on:
@@ -32,15 +33,12 @@ jobs:
           make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE defconfig
           make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$(nproc)
 
-      - name: Check Build Status
+      - name: Notify Telegram on Success
+        if: success()
         run: |
-          if [ $? -eq 0 ]; then
-            echo "Kernel build succeeded!"
-          else
-            echo "Kernel build failed."
-            exit 1
-          fi
+          python3 notify.py ${{ secrets.TELEGRAM_BOT_TOKEN }} ${{ secrets.TELEGRAM_CHAT_ID }} "Kernel build succeeded!"
 
-      - name: Install Modules (optional)
+      - name: Notify Telegram on Failure
+        if: failure()
         run: |
-          make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE modules_install
+          python3 notify.py ${{ secrets.TELEGRAM_BOT_TOKEN }} ${{ secrets.TELEGRAM_CHAT_ID }} "Kernel build failed."
