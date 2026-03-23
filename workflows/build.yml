@@ -1,5 +1,4 @@
-
-name: Build Linux Kernel
+name: Build Kernel
 
 on:
   push:
@@ -11,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Set up environment
@@ -19,26 +18,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev
 
-      - name: Set up cross-compiler
+      - name: Run build script
         run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          chmod +x ./build_kernel.sh
+          ./build_kernel.sh
 
-      - name: Build Linux Kernel
-        env:
-          KERNEL_SRC: ${{ github.workspace }}
-          CROSS_COMPILE: aarch64-linux-gnu-
-          ARCH: arm64
-        run: |
-          cd $KERNEL_SRC
-          make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE defconfig
-          make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$(nproc)
-
-      - name: Notify Telegram on Success
-        if: success()
-        run: |
-          python3 notify.py ${{ secrets.TELEGRAM_BOT_TOKEN }} ${{ secrets.TELEGRAM_CHAT_ID }} "Kernel build succeeded!"
-
-      - name: Notify Telegram on Failure
-        if: failure()
-        run: |
-          python3 notify.py ${{ secrets.TELEGRAM_BOT_TOKEN }} ${{ secrets.TELEGRAM_CHAT_ID }} "Kernel build failed."
