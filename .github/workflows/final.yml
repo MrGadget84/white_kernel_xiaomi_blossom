@@ -114,6 +114,27 @@ jobs:
           ls -l out/arch/arm64/boot/Image.gz
           echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
           echo "MD5 checksum is: $(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)"
+
+      - name: Notify con Telegram
+        run: |
+          VERSION=$(awk -F'=' '
+          /^VERSION[[:space:]]*=/ {v=$2}
+          /^PATCHLEVEL[[:space:]]*=/ {p=$2}
+          /^SUBLEVEL[[:space:]]*=/ {s=$2}
+          END {
+            gsub(/^[ \t]+|[ \t]+$/,"",v); gsub(/^[ \t]+|[ \t]+$/,"",p); gsub(/^[ \t]+|[ \t]+$/,"",s);
+            if (v=="") v="0"; if (p=="") p="0"; if (s=="") s="0";
+            printf "%s.%s.%s", v, p, s
+          }' Makefile)
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            --data-urlencode "text=☢️ *Great!*
+            *Device:* Blossom
+            *Arch:* arm64
+            *Defconfig:* $DEFCONFIG
+            *Kernel Version:* $VERSION
+            *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
+            -d parse_mode=Markdown
       
       - name: Set build info (time, md5)
         run: |
