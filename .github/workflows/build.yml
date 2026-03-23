@@ -1,0 +1,165 @@
+name: Kernel Build
+
+on:
+  push:
+    branches:
+      - perf
+  workflow_dispatch:
+
+env:
+  CCACHE_DIR: /tmp/ccache
+  DEFCONFIG: angelican
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Notify start on Telegram
+        run: |
+          VERSION=$(awk -F'=' '
+          /^VERSION[[:space:]]*=/ {v=$2}
+          /^PATCHLEVEL[[:space:]]*=/ {p=$2}
+          /^SUBLEVEL[[:space:]]*=/ {s=$2}
+          END {
+            gsub(/^[ \t]+|[ \t]+$/,"",v); gsub(/^[ \t]+|[ \t]+$/,"",p); gsub(/^[ \t]+|[ \t]+$/,"",s);
+            if (v=="") v="0"; if (p=="") p="0"; if (s=="") s="0";
+            printf "%s.%s.%s", v, p, s
+          }' Makefile)
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            --data-urlencode "text=☢️ *Kernel Build Started!*
+            *Device:* Xiaomi Redmi 9C NFC
+            *Arch:* arm64
+            *Defconfig:* $DEFCONFIG
+            *Kernel Version:* $VERSION
+            *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
+            -d parse_mode=Markdown
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git build-essential bc bison flex \
+            libssl-dev libelf-dev zlib1g-dev \
+            lld llvm gcc g++ \
+            python2 ninja-build zip ccache
+          sudo ln -sf /usr/bin/ld.lld /usr/bin/ld || true
+          sudo ln -sf "/usr/bin/python2" /usr/bin/python
+          git clone --depth=1 https://github.com/dandelion64-Archives/clang-r353983c clang
+          git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
+          git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
+
+
+      - name: Build the kernel and log output
+        run: |
+          mkdir -p out
+          START=$(date +%s)
+
+          {
+            echo "### Kernel Build Started: $(date)"
+            export ARCH=arm64
+            export CLANG_PATH="$PWD/clang/bin"
+            export GCC32_PATH="$PWD/gcc/bin"
+            export GCC64_PATH="$PWD/gcc64/bin"
+            export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
+            export CC=clang
+            export HOSTCC=clang
+            make O=out ${DEFCONFIG}_defconfig
+            make -j$(nproc --all) O=out CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android-
+          } 2>&1 | tee build.log
+
+          END=$(date +%s)
+          echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+          ls -l out/arch/arm64/boot/Image.gz
+          echo "MD5_CHECKSUM=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)" >> $GITHUB_ENV
+          echo "MD5 checksum is: $(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)"
+
+      - name: Set build info (time, md5)
+        run: |
+          END=$(date +%s)
+          echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
+          if [ -f out/arch/arm64/boot/Image.gz ]; then
+            MD5=$(md5sum out/arch/arm64/boot/Image.gz | cut -d ' ' -f1)
+            echo "MD5_CHECKSUM=$MD5" >> $GITHUB_ENV
+            echo "ZIP_NAME=Image.gz-dtb" >> $GITHUB_ENV
+          else
+            echo "MD5_CHECKSUM=not_found" >> $GITHUB_ENV
+          fi
+
+      - name: Upload kernel image as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ env.ZIP_NAME }}-${{ github.run_number }}
+          path: out/arch/arm64/boot/Image.gz
+          retention-days: 14
+
+      - name: Zip kernel modules
+        if: success()
+        run: |
+          mkdir -p out/kernel-modules
+          find out -name '*.ko' -print0 \
+            | xargs -0 cp -v -t out/kernel-modules
+          cd out/kernel-modules
+          zip -j kernel-modules.zip *.ko
+
+      - name: Upload modiles zip as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules-${{ env.ZIP_NAME }}-${{ github.run_number }}
+          path: out/kernel-modules/kernel-modules.zip
+          retention-days: 14
+
+      - name: Upload build log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.run_number }}
+          path: build.log
+          retention-days: 14
+
+      - name: Notify success on Telegram
+        if: success()
+        run: |
+          CAPTION="✅ *Build Successful!*
+          📅 *Date:* $BUILD_DATE
+          ⏱ *Time:* ${BUILD_TIME}s
+          🔐 *MD5:* \`${MD5_CHECKSUM}\`"
+          curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -F document=@out/arch/arm64/boot/Image.gz \
+            -F caption="$CAPTION" \
+            -F parse_mode=Markdown \
+            https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+
+      - name: Send build artifacts to Telegram
+        if: success()
+        run: |
+          curl -s -F document=@out/arch/arm64/boot/dts/mediatek/"${DEFCONFIG}.dtb" \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F caption="DTB"
+          curl -s -F document=@out/kernel-modules/kernel-modules.zip \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F caption="Kernel Modules ZIP"
+
+      - name: Notify failure on Telegram
+        if: failure()
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            --data-urlencode "text=❌ *Kernel build failed!*
+            *Commit:* [${GITHUB_SHA::7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})" \
+            -d parse_mode=Markdown
+
+      - name: Send build log to Telegram
+        if: always()
+        run: |
+          curl -s -F document=@build.log \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F caption="📄 Kernel build log"
