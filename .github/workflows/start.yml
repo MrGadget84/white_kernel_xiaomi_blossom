@@ -26,9 +26,9 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
             git build-essential bc bison flex libssl-dev libelf-dev zlib1g-dev lld llvm gcc g++ python2 ninja-build zip ccache curl
           sudo ln -sf /usr/bin/python2 /usr/bin/python
-          git clone --depth=1 https://github.com -b master clang
-          git clone --depth=1 https://github.com gcc64
-          git clone --depth=1 https://github.com gcc
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master clang
+          git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
+          git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
 
       - name: Setup KernelSU
         run: |
