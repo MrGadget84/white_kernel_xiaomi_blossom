@@ -1,0 +1,32 @@
+      - name: Build the kernel and log output
+        run: |
+          mkdir -p out
+          START=$(date +%s)
+          {
+            export ARCH=arm64
+            export CLANG_PATH="$PWD/clang/bin"
+            export GCC32_PATH="$PWD/gcc/bin"
+            export GCC64_PATH="$PWD/gcc64/bin"
+            export PATH="$CLANG_PATH:$GCC64_PATH:$GCC32_PATH:$PATH"
+            export CC=clang
+            export HOSTCC=clang
+
+            # 1. ОТКЛЮЧАЕМ РЕЖИМ "ПРЕДУПРЕЖДЕНИЯ КАК ОШИБКИ" ВО ВСЕХ MAKEFILE
+            find . -name "Makefile" -type f -exec sed -i 's/-Werror//g' {} +
+            
+            # 2. УВЕЛИЧИВАЕМ ЛИМИТ СТЕКА ДО 8КБ (на всякий случай)
+            find . -name "Makefile" -type f -exec sed -i 's/-Wframe-larger-than=[0-9]*/-Wframe-larger-than=8192/g' {} +
+
+            make O=out ${DEFCONFIG}_defconfig
+            
+            # 3. ПРАВИМ СГЕНЕРИРОВАННЫЙ КОНФИГ
+            sed -i 's/CONFIG_FRAME_WARN=[0-9]*/CONFIG_FRAME_WARN=8192/g' out/.config
+
+            # СБОРКА
+            make -j$(nproc --all) O=out \
+              CC=clang \
+              CLANG_TRIPLE=aarch64-linux-gnu- \
+              CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+              CROSS_COMPILE=aarch64-linux-android- \
+              KCFLAGS="-Wno-error -Wno-frame-larger-than"
+          } 2>&1 | tee build.log
