@@ -32,6 +32,7 @@ jobs:
             -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             --data-urlencode "text=☢️ *Kernel Build Started!*
             *Device:* Blossom
+            *Version:* Vanilla beta 0.2
             *Arch:* arm64
             *Defconfig:* $DEFCONFIG
             *Kernel Version:* $VERSION
@@ -98,6 +99,7 @@ jobs:
             -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             --data-urlencode "text=☢️ *Complite the Build. Great!*
             *Device:* Blossom
+            *Version:* Vanilla beta 0.2
             *Arch:* arm64
             *Defconfig:* $DEFCONFIG
             *Kernel Version:* $VERSION
