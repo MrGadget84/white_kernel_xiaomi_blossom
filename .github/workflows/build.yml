@@ -65,6 +65,7 @@ jobs:
             export CC=clang
             export HOSTCC=clang
             make O=out ${DEFCONFIG}_defconfig
+            sed -i 's/CONFIG_FRAME_WARN=2048/CONFIG_FRAME_WARN=8192/g' out/.config
             make -j$(nproc --all) O=out CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi- CROSS_COMPILE=aarch64-linux-android-
           } 2>&1 | tee build.log
           END=$(date +%s)
