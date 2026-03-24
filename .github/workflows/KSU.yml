@@ -61,7 +61,7 @@ jobs:
           echo "$KERNEL_VER"
           PATCH_DIR="ksu_patches_repo/patches/$KERNEL_VER"
           if [ -d "$PATCH_DIR" ]; then
-            echo "Применяю патчи из $PATCH_DIR..."
+            echo "$PATCH_DIR..."
             for patch in "$PATCH_DIR"/*.patch; do
               git am "$patch" || patch -p1 < "$patch"
             done
