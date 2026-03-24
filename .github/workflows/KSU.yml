@@ -60,13 +60,18 @@ jobs:
           KERNEL_VER=$(make kernelversion | cut -d. -f1,2)
           echo "$KERNEL_VER"
           PATCH_DIR="ksu_patches_repo/patches/$KERNEL_VER"
-          
           if [ -d "$PATCH_DIR" ]; then
+            echo "Применяю патчи из $PATCH_DIR..."
             for patch in "$PATCH_DIR"/*.patch; do
               git am "$patch" || patch -p1 < "$patch"
             done
-          echo "✅ KernelSU setup finished"
+            echo "✅ Патчи успешно применены"
+          else
+            echo "❌ Ошибка: Патчи для версии $KERNEL_VER не найдены в репозитории!"
+            exit 1
           fi
+          echo "✅ KernelSU setup finished"
+
       - name: Build the kernel and log output
         run: |
           mkdir -p out
