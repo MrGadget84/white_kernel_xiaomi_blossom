@@ -57,7 +57,16 @@ jobs:
       - name: Setup KernelSU
         run: |
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash
+          KERNEL_VER=$(make kernelversion | cut -d. -f1,2)
+          echo "$KERNEL_VER"
+          PATCH_DIR="ksu_patches_repo/patches/$KERNEL_VER"
+          
+          if [ -d "$PATCH_DIR" ]; then
+            for patch in "$PATCH_DIR"/*.patch; do
+              git am "$patch" || patch -p1 < "$patch"
+            done
           echo "✅ KernelSU setup finished"
+          fi
 
       - name: Build the kernel and log output
         run: |
