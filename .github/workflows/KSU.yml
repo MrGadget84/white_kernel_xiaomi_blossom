@@ -144,23 +144,23 @@ jobs:
           sed -i 's/device.name1=maguro/device.name1=blossom/g' anykernel.sh
           sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot|block=/dev/block/by-name/boot|g' anykernel.sh
           
-          zip -r9 ../WhiteKernel-Blossom.zip * -x .git* README.md
+          zip -r9 ../WhiteKernel-Blossom-KSU.zip * -x .git* README.md
           cd ..
           
-          echo "ZIP_MD5=$(md5sum WhiteKernel-Blossom.zip | cut -d ' ' -f1)" >> $GITHUB_ENV
+          echo "ZIP_MD5=$(md5sum WhiteKernel-Blossom-KSU.zip | cut -d ' ' -f1)" >> $GITHUB_ENV
 
       - name: Upload Flashable ZIP Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: WhiteKernel-Blossom-Zip
-          path: WhiteKernel-Blossom.zip
+          name: WhiteKernel-Blossom-KSU-Zip
+          path: WhiteKernel-Blossom-KSU.zip
 
       - name: Notify success on Telegram
         if: success()
         run: |
           curl -s -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -F document=@WhiteKernel-Blossom.zip \
+            -F document=@WhiteKernel-Blossom-KSU.zip \
             -F caption="✅ *Build Successful!*
             ⏱ *Time:* ${BUILD_TIME}s
             🔐 *MD5:* \`${ZIP_MD5}\`
