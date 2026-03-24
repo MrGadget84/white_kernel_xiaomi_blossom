@@ -110,7 +110,7 @@ jobs:
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-androideabi- \
             CROSS_COMPILE=aarch64-linux-android- \
-            KBUILD_WERROR=0 2>&1 | tee build.log || (echo "❌ СБОРКА УПАЛА. ПОСЛЕДНИЕ СТРОКИ:" && tail -n 100 build.log && exit 1)
+            KBUILD_WERROR=0 2>&1 | tee build.log
           END=$(date +%s)
           echo "BUILD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "BUILD_TIME=$((END - START))" >> $GITHUB_ENV
