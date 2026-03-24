@@ -54,40 +54,26 @@ jobs:
           git clone --depth=1 https://github.com/Sakurajima07/aarch64-linux-android-4.9 gcc64
           git clone --depth=1 https://github.com/Sakurajima07/arm-linux-androideabi-4.9 gcc
 
-      - name: Integrate KernelSU
-        env:
-          kernel_ver: "4.19" # Замените на вашу версию
-          kernel_name: "  WhiteKernel-Blossom"
-          defconfig_file: "arch/arm64/configs/blossom_defconfig"
-          outside: ${{ github.workspace }}
+      - name: Setup KSU
         run: |
-          git config --global user.email "bot@github.com"
-          git config --global user.name "Kernel-Builder"
-          git config --global advice.addEmbeddedRepo false
-
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/refs/heads/main/kernel/setup.sh" | bash -
-        
+          git add . && git commit -am "drivers: KernelSU"
           KSU_git_ver=$(cd KernelSU && git rev-list --count HEAD)
           KSU_ver=$(($KSU_git_ver + 10000 + 200))
-        
-          git add .
-          git commit -am "drivers: KernelSU"
+
           patchesdir="$outside/ksu/patches/$(echo $kernel_ver | cut -d. -f1,2)"
           if [[ -d "$patchesdir" ]]; then
-            for patch_file in "$patchesdir"/*.patch ; do
-              git am "$patch_file"
-            done
+          for patch_file in "$patchesdir"/*.patch ; do
+          git am "$patch_file"
+              done
           else
-            echo "patching ksu failed, no patches for $kernel_ver"
-            exit 1
+             echo "patching ksu failed, the kernel version you want to patch doesnt have patches here yet"
+              exit 1
           fi
-
-          sed -i "s/\(CONFIG_LOCALVERSION=\)\(.*\)/\1\"-${kernel_name}-ks${KSU_ver}\"/" "${defconfig_file}"
-          grep 'CONFIG_LOCALVERSION=' "${defconfig_file}"
-          echo -e " \nincludes rsuntk's KernelSU fork, ver ${KSU_ver}" >> banner_append
-
-
-         
+           sed -i "s/\(CONFIG_LOCALVERSION=\)\(.*\)/\1\"-${kernel_name}-ks${KSU_ver}\"/" "${defconfig_file}"
+           echo "$(grep 'CONFIG_LOCALVERSION=' ${defconfig_file})"
+           echo -e " \nincludes rsuntk's KernelSU fork, ver ${KSU_ver}" >> banner_append
+  
       - name: Build the kernel and log output
         run: |
           mkdir -p out
