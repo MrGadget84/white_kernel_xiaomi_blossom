@@ -56,21 +56,22 @@ jobs:
 
       - name: Integrate KernelSU
         env:
-      
-          kernel_ver: "4.19" # Пример
-          kernel_name: "WhiteKernel-Blossom"
+          kernel_ver: "4.19" # Замените на вашу версию
+          kernel_name: "  WhiteKernel-Blossom"
           defconfig_file: "arch/arm64/configs/blossom_defconfig"
-          outside: ${{ github.workspace }} 
+          outside: ${{ github.workspace }}
         run: |
+          git config --global user.email "bot@github.com"
+          git config --global user.name "Kernel-Builder"
+          git config --global advice.addEmbeddedRepo false
 
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/refs/heads/main/kernel/setup.sh" | bash -
         
           KSU_git_ver=$(cd KernelSU && git rev-list --count HEAD)
           KSU_ver=$(($KSU_git_ver + 10000 + 200))
-          echo "KSU_VER=$KSU_ver" >> $GITHUB_ENV
+        
           git add .
           git commit -am "drivers: KernelSU"
-        
           patchesdir="$outside/ksu/patches/$(echo $kernel_ver | cut -d. -f1,2)"
           if [[ -d "$patchesdir" ]]; then
             for patch_file in "$patchesdir"/*.patch ; do
@@ -80,11 +81,11 @@ jobs:
             echo "patching ksu failed, no patches for $kernel_ver"
             exit 1
           fi
-        
+
           sed -i "s/\(CONFIG_LOCALVERSION=\)\(.*\)/\1\"-${kernel_name}-ks${KSU_ver}\"/" "${defconfig_file}"
-        
           grep 'CONFIG_LOCALVERSION=' "${defconfig_file}"
           echo -e " \nincludes rsuntk's KernelSU fork, ver ${KSU_ver}" >> banner_append
+
 
          
       - name: Build the kernel and log output
