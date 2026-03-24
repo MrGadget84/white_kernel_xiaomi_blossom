@@ -32,7 +32,7 @@ jobs:
             -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             --data-urlencode "text=☢️ *Kernel Build Started!*
             *Device:* Blossom
-            *Version:* KSU beta 0.3
+            *Version:* KSU beta 0.3.1
             *Arch:* arm64
             *Defconfig:* $DEFCONFIG
             *Kernel Version:* $VERSION
@@ -57,6 +57,14 @@ jobs:
       - name: Setup KernelSU
         run: |
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
+          KERNEL_VER=$(make kernelversion | cut -d. -f1,2)
+          echo "$KERNEL_VER"
+          PATCH_DIR="ksu_patches_repo/patches/$KERNEL_VER"
+          
+          if [ -d "$PATCH_DIR" ]; then
+            for patch in "$PATCH_DIR"/*.patch; do
+              git am "$patch" || patch -p1 < "$patch"
+            done
           echo "✅ KernelSU setup finished"
   
       - name: Build the kernel and log output
@@ -104,7 +112,7 @@ jobs:
             -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
             --data-urlencode "text=☢️ *Complite the Build. Great!*
             *Device:* Blossom
-            *Version:* KSU beta 0.3
+            *Version:* KSU beta 0.3.1
             *Arch:* arm64
             *Defconfig:* $DEFCONFIG
             *Kernel Version:* $VERSION
