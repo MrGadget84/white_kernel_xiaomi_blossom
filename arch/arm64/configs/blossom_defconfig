@@ -1,4 +1,4 @@
-CONFIG_LOCALVERSION="-WhiteKernel-Blossom"
+CONFIG_LOCALVERSION="-WhiteKernelBlossom-infinity"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_PREEMPT=y
 # CONFIG_CPU_ISOLATION is not set
