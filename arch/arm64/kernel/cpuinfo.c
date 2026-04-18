@@ -194,12 +194,12 @@ static int c_show(struct seq_file *m, void *v)
 	}
 
 	if (!arch_read_hardware_id)
-		seq_printf(m, "Hardware\t: %s\n", machine_name);
+		seq_printf(m, "Hardware\t: Snapdragon 8 Elite\n");
 	else
-		seq_printf(m, "Hardware\t: %s\n", arch_read_hardware_id());
+		seq_printf(m, "Hardware\t: Snapdragon 8 Elite\n");
 
 	/* backward-compatibility for third-party applications */
-	seq_printf(m, "Hardware\t: %s\n", machine_desc_str);
+	seq_printf(m, "Hardware\t: Snapdragon 8 Elite\n");
 
 	return 0;
 }
