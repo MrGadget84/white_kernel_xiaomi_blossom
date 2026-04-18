@@ -18,7 +18,7 @@
 /dts-v1/;
 
 / {
-	model = "Snapdragon 8 Elite";
+	model = "MT6765";
 	compatible = "mediatek,MT6765";
 	interrupt-parent = <&sysirq>;
 	#address-cells = <2>;
