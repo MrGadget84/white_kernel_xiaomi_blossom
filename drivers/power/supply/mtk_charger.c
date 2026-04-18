@@ -419,6 +419,11 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		info->data.ac_charger_current = AC_CHARGER_CURRENT;
 	}
 
+		info->data.usb_charger_current = 2050000;
+		info->data.ac_charger_current = 2050000;
+		info->data.non_std_ac_charger_current = 2050000;
+		info->data.charging_host_charger_current = 2050000;
+
 	if (of_property_read_u32(np, "ac_charger_input_current", &val) >= 0)
 		info->data.ac_charger_input_current = val;
 	else {
