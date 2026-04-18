@@ -45,7 +45,7 @@ do {								\
 struct mtk_charger;
 #define BATTERY_CV 4350000
 #define V_CHARGER_MAX 10500000 /* 10.5 V */
-#define V_CHARGER_MIN 4600000 /* 4.6 V */
+#define V_CHARGER_MIN 4400000 /* 4.4 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
 #define USB_CHARGER_CURRENT_UNCONFIGURED	1500000 /* 1500mA */
@@ -110,9 +110,9 @@ struct battery_thermal_protection_data {
 #define JEITA_TEMP_T1_TO_T2_CV	4240000
 #define JEITA_TEMP_T0_TO_T1_CV	4040000
 #define JEITA_TEMP_BELOW_T0_CV	4040000
-#define TEMP_T4_THRES  50
+#define TEMP_T4_THRES  60
 #define TEMP_T4_THRES_MINUS_X_DEGREE 47
-#define TEMP_T3_THRES  45
+#define TEMP_T3_THRES  55
 #define TEMP_T3_THRES_MINUS_X_DEGREE 39
 #define TEMP_T2_THRES  10
 #define TEMP_T2_THRES_PLUS_X_DEGREE 16
