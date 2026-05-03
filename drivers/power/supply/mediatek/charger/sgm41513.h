@@ -1,117 +1,67 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ * sgm41513 battery charging driver
+ *
+ * Copyright (C) 2013 SGM
+ *
+ * This package is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+
+ * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
-#ifndef _MTK_SMARTCHARGING_H
-#define _MTK_SMARTCHARGING_H
 
-#include <linux/netlink.h>	/* netlink */
-#include <linux/socket.h>	/* netlink */
-#include <linux/skbuff.h>	/* netlink */
-#include <net/sock.h>		/* netlink */
+#ifndef _LINUX_SGM41513_I2C_H
+#define _LINUX_SGM41513_I2C_H
 
-#define NETLINK_CHG 28
+#include <linux/power_supply.h>
 
-#define SCD_NL_MSG_T_HDR_LEN 28
-#define MAX_NL_MSG_LEN_SND 4096
-#define MAX_NL_MSG_LEN_RCV 9200
-#define SCD_NL_MSG_MAX_LEN 9200
 
-#define SCD_NL_MAGIC 19800212
+struct sgm41513_charge_param {
+	int vlim;
+	int ilim;
+	int ichg;
+	int vreg;
+};
 
-enum sc_daemon_cmds {
-	SC_DAEMON_CMD_PRINT_LOG,
-	SC_DAEMON_CMD_SET_DAEMON_PID,
-	SC_DAEMON_CMD_NOTIFY_DAEMON,
-	SC_DAEMON_CMD_SETTING,
+enum stat_ctrl {
+	STAT_CTRL_STAT,
+	STAT_CTRL_ICHG,
+	STAT_CTRL_INDPM,
+	STAT_CTRL_DISABLE,
+};
 
-	SC_DAEMON_CMD_FROM_USER_NUMBER
+enum vboost {
+	BOOSTV_4850 = 4850,
+	BOOSTV_5000 = 5000,
+	BOOSTV_5150 = 5150,
+	BOOSTV_5300 = 5300,
+};
+
+enum iboost {
+	BOOSTI_500 = 500,
+	BOOSTI_1200 = 1200,
+};
+
+enum vac_ovp {
+	VAC_OVP_5500 = 5500,
+	VAC_OVP_6500 = 6500,
+	VAC_OVP_10500 = 10500,
+	VAC_OVP_14000 = 14000,
 };
 
 
-enum sc_kernel_events {
-	SC_EVENT_PLUG_IN,
-	SC_EVENT_PLUG_OUT,
-	SC_EVENT_CHARGING,
-	SC_EVENT_STOP_CHARGING,
+struct sgm41513_platform_data {
+	struct sgm41513_charge_param usb;
+	int iprechg;
+	int iterm;
+
+	enum stat_ctrl statctrl;
+	enum vboost boostv;	// options are 4850,
+	enum iboost boosti; // options are 500mA, 1200mA
+	enum vac_ovp vac_ovp;
+
 };
 
-/* hs14 code for AL6528ADEU-580 by gaozhengwei at 2022/10/09 start */
-enum sc_adapter_type {
-	SC_ADAPTER_NORMAL,
-	SC_ADAPTER_HV,
-};
-/* hs14 code for AL6528ADEU-580 by gaozhengwei at 2022/10/09 end */
-
-struct sc_nl_msg_t {
-	unsigned int sc_cmd;
-	unsigned int sc_subcmd;
-	unsigned int sc_subcmd_para1;
-	unsigned int sc_subcmd_para2;
-	unsigned int sc_data_len;
-	unsigned int sc_ret_data_len;
-	unsigned int identity;
-	char sc_data[SCD_NL_MSG_MAX_LEN];
-};
-
-struct scd_cmd_param_t_1 {
-	int size;
-	int data[50];
-};
-
-enum sc_info {
-	SC_VBAT,
-	SC_BAT_TMP,
-	SC_UISOC,
-	SC_SOC,
-	SC_ENABLE,
-	SC_BAT_SIZE,
-	SC_START_TIME,
-	SC_END_TIME,
-	SC_IBAT_LIMIT,
-	SC_TARGET_PERCENTAGE,
-	SC_LEFT_TIME_FOR_CV,
-	SC_IBAT_SETTING,
-	SC_IBAT,
-	SC_IBAT_ALG,
-	SC_IBUS,
-	SC_DBGLV,
-	SC_SOLUTION,
-
-	SC_INFO_MAX
-};
-
-enum sc_current_direction {
-	SC_IGNORE,
-	SC_KEEP,
-	SC_DISABLE,
-	SC_REDUCE,
-};
-
-struct smartcharging {
-	/*daemon related*/
-	struct sock *daemo_nl_sk;
-	u_int g_scd_pid;
-	struct scd_cmd_param_t_1 data;
-	bool enable;
-	int battery_size;
-	int current_limit;
-	int target_percentage;
-	int left_time_for_cv;
-	int start_time;
-	int end_time;
-
-	bool disable_charger;
-	enum sc_current_direction solution;
-	int sc_ibat;
-	int pre_ibat;
-	int bh;
-
-	bool disable_in_this_plug;
-};
-
-extern int wakeup_sc_algo_cmd(struct scd_cmd_param_t_1 *data, int subcmd, int para1);
-extern void sc_update(struct charger_manager *pinfo);
-extern void sc_select_charging_current(struct charger_manager *info, struct charger_data *pdata);
-
-#endif /* End of _MTK_SMARTCHARGING_H */
+#endif

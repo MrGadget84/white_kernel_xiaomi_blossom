@@ -1,147 +1,151 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
- */
+ * Copyright (c) 2021 MediaTek Inc.
+*/
 
-#ifndef LINUX_POWER_ADAPTER_CLASS_H
-#define LINUX_POWER_ADAPTER_CLASS_H
+#ifndef __MTK_CHARGER_INIT_H__
+#define __MTK_CHARGER_INIT_H__
 
-#include <linux/kernel.h>
-#include <linux/device.h>
-#include <linux/mutex.h>
+/* hs14 code for SR-AL6528A-01-323|AL6528ADEU-580 by gaozhengwei at 2022/10/09 start */
+#define BATTERY_CV 4400000
+#define CV_HIGH_THRESHOLD 4500000
+#define V_CHARGER_MAX 6300000 /* 6.3 V */
+#define HV_CHARGER_MAX 10400000 /* 10.4 V */
+#define V_CHARGER_DROP 700000 /* 0.7 V */
+/* hs14 code for SR-AL6528A-01-323|AL6528ADEU-580 by gaozhengwei at 2022/10/09 end */
+#define V_CHARGER_MIN 4600000 /* 4.6 V */
+/* hs14 code for AL6528A-604 by gaozhengwei at 2022/11/07 start */
+#define HV_CHARGER_MIN 8000000 /* 8.0 V */
+/* hs14 code for AL6528A-604 by gaozhengwei at 2022/11/07 end */
 
+#define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
+#define USB_CHARGER_CURRENT_UNCONFIGURED	70000 /* 70mA */
+#define USB_CHARGER_CURRENT_CONFIGURED		500000 /* 500mA */
+#define USB_CHARGER_CURRENT			500000 /* 500mA */
+/* hs14 code for SR-AL6528A-01-323 by gaozhengwei at 2022/09/22 start */
+#define AC_CHARGER_CURRENT			2000000
+#define AC_CHARGER_INPUT_CURRENT		1550000
+/* hs14 code for SR-AL6528A-01-323 by gaozhengwei at 2022/09/22 end */
+#define NON_STD_AC_CHARGER_CURRENT		500000
+#define CHARGING_HOST_CHARGER_CURRENT		650000
+#define APPLE_1_0A_CHARGER_CURRENT		650000
+#define APPLE_2_1A_CHARGER_CURRENT		800000
+#define TA_AC_CHARGING_CURRENT	3000000
+#define USB_UNLIMITED_CURRENT	2000000
+/* hs14 code for SR-AL6528A-01-322 by wenyaqi at 2022/09/20 start */
+#define PD_CHARGER_CURRENT 2700000
+#define PD_INPUT_CURRENT 1650000
+#define PD_VOLTAGE_THR 8000
+/* hs14 code for SR-AL6528A-01-322 by wenyaqi at 2022/09/20 end */
 
-#define ADAPTER_CAP_MAX_NR 10
+/* dynamic mivr */
+#define V_CHARGER_MIN_1 4400000 /* 4.4 V */
+#define V_CHARGER_MIN_2 4200000 /* 4.2 V */
+#define MAX_DMIVR_CHARGER_CURRENT 1400000 /* 1.4 A */
 
-struct adapter_power_cap {
-	uint8_t selected_cap_idx;
-	uint8_t nr;
-	uint8_t pdp;
-	uint8_t pwr_limit[ADAPTER_CAP_MAX_NR];
-	int max_mv[ADAPTER_CAP_MAX_NR];
-	int min_mv[ADAPTER_CAP_MAX_NR];
-	int ma[ADAPTER_CAP_MAX_NR];
-	int maxwatt[ADAPTER_CAP_MAX_NR];
-	int minwatt[ADAPTER_CAP_MAX_NR];
-	uint8_t type[ADAPTER_CAP_MAX_NR];
-	int info[ADAPTER_CAP_MAX_NR];
-};
+/* hs14 code for SR-AL6528A-01-323 by gaozhengwei at 2022/09/22 start */
+/* sw jeita */
+#define JEITA_TEMP_ABOVE_T4_CV  4200000
+#define JEITA_TEMP_T3_TO_T4_CV  4200000
+#define JEITA_TEMP_T2_TO_T3_CV  4400000
+#define JEITA_TEMP_T1_TO_T2_CV  4400000
+#define JEITA_TEMP_T0_TO_T1_CV  4400000
+#define JEITA_TEMP_BELOW_T0_CV  4400000
+#define JEITA_TEMP_ABOVE_T4_CUR  0
+#define JEITA_TEMP_T3_TO_T4_CUR  1750000
+/* hs14 code for SR-AL6528A-01-322 by wenyaqi at 2022/09/23 start */
+#define JEITA_TEMP_T2_TO_T3_CUR  2700000
+/* hs14 code for SR-AL6528A-01-322 by wenyaqi at 2022/09/23 end */
+#define JEITA_TEMP_T1_TO_T2_CUR  1500000
+#define JEITA_TEMP_T0_TO_T1_CUR  500000
+#define JEITA_TEMP_BELOW_T0_CUR  0
+#define TEMP_T4_THRES  50
+#define TEMP_T4_THRES_MINUS_X_DEGREE  48
+#define TEMP_T3_THRES  45
+#define TEMP_T3_THRES_MINUS_X_DEGREE  43
+#define TEMP_T2_THRES  12
+#define TEMP_T2_THRES_PLUS_X_DEGREE  14
+#define TEMP_T1_THRES  5
+#define TEMP_T1_THRES_PLUS_X_DEGREE  7
+#define TEMP_T0_THRES  0
+#define TEMP_T0_THRES_PLUS_X_DEGREE  2
+#define TEMP_NEG_10_THRES  0
+/* hs14 code for SR-AL6528A-01-323 by gaozhengwei at 2022/09/22 end */
 
-enum adapter_type {
-	MTK_PD_ADAPTER,
-};
+/* Battery Temperature Protection */
+#define MIN_CHARGE_TEMP  0
+#define MIN_CHARGE_TEMP_PLUS_X_DEGREE	6
+#define MAX_CHARGE_TEMP  50
+#define MAX_CHARGE_TEMP_MINUS_X_DEGREE	47
 
-enum adapter_event {
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_HARD_RESET,
-	MTK_PD_CONNECT_PE_READY_SNK,
-	MTK_PD_CONNECT_PE_READY_SNK_PD30,
-	MTK_PD_CONNECT_PE_READY_SNK_APDO,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-	MTK_TYPEC_WD_STATUS,
-	MTK_TYPEC_HRESET_STATUS,
-};
+/* pe */
+#define PE_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define TA_AC_12V_INPUT_CURRENT 3200000
+#define TA_AC_9V_INPUT_CURRENT	3200000
+#define TA_AC_7V_INPUT_CURRENT	3200000
+#define TA_9V_SUPPORT
+#define TA_12V_SUPPORT
 
-enum adapter_property {
-	TYPEC_RP_LEVEL,
-	PD_TYPE,
-};
+/* pe2.0 */
+#define PE20_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define TA_START_BATTERY_SOC	0
+#define TA_STOP_BATTERY_SOC	85
 
-enum adapter_cap_type {
-	MTK_PD_APDO_START,
-	MTK_PD_APDO_END,
-	MTK_PD,
-	MTK_PD_APDO,
-	MTK_CAP_TYPE_UNKNOWN,
-};
+/* dual charger */
+#define TA_AC_MASTER_CHARGING_CURRENT 1500000
+#define TA_AC_SLAVE_CHARGING_CURRENT 1500000
+#define SLAVE_MIVR_DIFF 100000
 
-enum adapter_return_value {
-	MTK_ADAPTER_OK = 0,
-	MTK_ADAPTER_NOT_SUPPORT,
-	MTK_ADAPTER_TIMEOUT,
-	MTK_ADAPTER_REJECT,
-	MTK_ADAPTER_ERROR,
-	MTK_ADAPTER_ADJUST,
-};
+/* slave charger */
+#define CHG2_EFF 90
 
+/* cable measurement impedance */
+#define CABLE_IMP_THRESHOLD 699
+#define VBAT_CABLE_IMP_THRESHOLD 3900000 /* uV */
 
-struct adapter_status {
-	int temperature;
-	bool ocp;
-	bool otp;
-	bool ovp;
-};
+/* bif */
+#define BIF_THRESHOLD1 4250000	/* UV */
+#define BIF_THRESHOLD2 4300000	/* UV */
+#define BIF_CV_UNDER_THRESHOLD2 4450000	/* UV */
+#define BIF_CV BATTERY_CV /* UV */
 
-struct adapter_properties {
-	const char *alias_name;
-};
+#define R_SENSE 56 /* mohm */
 
-struct adapter_device {
-	struct adapter_properties props;
-	const struct adapter_ops *ops;
-	struct mutex ops_lock;
-	struct device dev;
-	struct srcu_notifier_head evt_nh;
-	void	*driver_data;
+#define MAX_CHARGING_TIME (12 * 60 * 60) /* 12 hours */
 
-};
+#define DEFAULT_BC12_CHARGER 0 /* MAIN_CHARGER */
 
-struct adapter_ops {
-	int (*suspend)(struct adapter_device *dev, pm_message_t state);
-	int (*resume)(struct adapter_device *dev);
-	int (*get_property)(struct adapter_device *dev,
-		enum adapter_property pro);
-	int (*get_status)(struct adapter_device *dev,
-		struct adapter_status *sta);
-	int (*set_cap)(struct adapter_device *dev, enum adapter_cap_type type,
-		int mV, int mA);
-	int (*get_cap)(struct adapter_device *dev, enum adapter_cap_type type,
-		struct adapter_power_cap *cap);
-	int (*get_output)(struct adapter_device *dev, int *mV, int *mA);
+/* battery warning */
+#define BATTERY_NOTIFY_CASE_0001_VCHARGER
+#define BATTERY_NOTIFY_CASE_0002_VBATTEMP
 
-};
+/* pe4 */
+#define PE40_MAX_VBUS 11000
+#define PE40_MAX_IBUS 3000
+#define HIGH_TEMP_TO_LEAVE_PE40 46
+#define HIGH_TEMP_TO_ENTER_PE40 39
+#define LOW_TEMP_TO_LEAVE_PE40 10
+#define LOW_TEMP_TO_ENTER_PE40 16
 
-static inline void *adapter_dev_get_drvdata(
-	const struct adapter_device *adapter_dev)
-{
-	return adapter_dev->driver_data;
-}
+/* pd */
+#define PD_VBUS_UPPER_BOUND 10000000	/* uv */
+#define PD_VBUS_LOW_BOUND 5000000	/* uv */
+#define PD_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define PD_STOP_BATTERY_SOC 80
 
-static inline void adapter_dev_set_drvdata(
-	struct adapter_device *adapter_dev, void *data)
-{
-	adapter_dev->driver_data = data;
-}
+#define VSYS_WATT 5000000
+#define IBUS_ERR 14
 
-extern struct adapter_device *adapter_device_register(
-	const char *name,
-	struct device *parent, void *devdata, const struct adapter_ops *ops,
-	const struct adapter_properties *props);
-extern void adapter_device_unregister(
-	struct adapter_device *adapter_dev);
-extern int register_adapter_device_notifier(struct adapter_device *adapter_dev,
-				struct notifier_block *nb);
-extern int unregister_adapter_device_notifier(
-				struct adapter_device *adapter_dev,
-				struct notifier_block *nb);
-extern struct adapter_device *get_adapter_by_name(
-	const char *name);
+#define SC_BATTERY_SIZE 3000
+#define SC_CV_TIME 3600
+#define SC_CURRENT_LIMIT 2000
 
-#define to_adapter_device(obj) container_of(obj, struct adapter_device, dev)
+#endif /*__MTK_CHARGER_INIT_H__*/
 
-extern int adapter_dev_get_property(struct adapter_device *adapter_dev,
-	enum adapter_property sta);
-extern int adapter_dev_get_status(struct adapter_device *adapter_dev,
-	struct adapter_status *sta);
-extern int adapter_dev_get_output(struct adapter_device *adapter_dev,
-	int *mV, int *mA);
-extern int adapter_dev_set_cap(struct adapter_device *adapter_dev,
-	enum adapter_cap_type type,
-	int mV, int mA);
-extern int adapter_dev_get_cap(struct adapter_device *adapter_dev,
-	enum adapter_cap_type type,
-	struct adapter_power_cap *cap);
-
-
-#endif /*LINUX_POWER_ADAPTER_CLASS_H*/
-
+/* hs14 code for SR-AL6528A-01-336 by shanxinkai at 2022/09/15 start */
+/*D85 setting */
+#ifdef HQ_D85_BUILD
+#define D85_BATTERY_CV 4000000
+#define D85_JEITA_TEMP_CV 4000000
+#endif
+/* hs14 code for SR-AL6528A-01-336 by shanxinkai at 2022/09/15 end */

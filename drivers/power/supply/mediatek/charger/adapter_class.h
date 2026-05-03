@@ -144,3 +144,4 @@ extern int adapter_dev_get_cap(struct adapter_device *adapter_dev,
 
 
 #endif /*LINUX_POWER_ADAPTER_CLASS_H*/
+

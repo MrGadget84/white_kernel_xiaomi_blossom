@@ -3,60 +3,111 @@
  * Copyright (c) 2021 MediaTek Inc.
 */
 
-#ifndef __MTK_PD_INTF_H
-#define __MTK_PD_INTF_H
+#ifndef __MTK_PE20_INTF_H__
+#define __MTK_PE20_INTF_H__
 
-#include "adapter_class.h"
-
-/* PD charging */
-struct mtk_pdc {
-	struct tcpc_device *tcpc;
-	struct adapter_power_cap cap;
-	int pdc_max_watt;
-	int pdc_max_watt_setting;
-
-	bool check_impedance;
-	int pd_cap_max_watt;
-	int pd_idx;
-	int pd_reset_idx;
-	int pd_boost_idx;
-	int pd_buck_idx;
-	int vbus_l;
-	int vbus_h;
-
-	struct mutex access_lock;
-	struct mutex pmic_sync_lock;
-	struct wakeup_source suspend_lock;
-	int ta_vchr_org;
-	bool to_check_chr_type;
-	bool to_tune_ta_vchr;
-	bool is_cable_out_occur;
-	bool is_connect;
-	bool is_enabled;
+/* pe 2.0*/
+struct pe20_profile {
+	unsigned int vbat;
+	unsigned int vchr;
 };
 
-extern bool mtk_pdc_check_charger(struct charger_manager *info);
-extern void mtk_pdc_plugout_reset(struct charger_manager *info);
-extern void mtk_pdc_set_max_watt(struct charger_manager *info, int watt);
-extern int mtk_pdc_get_max_watt(struct charger_manager *info);
-extern int mtk_pdc_get_setting(struct charger_manager *info, int *vbus,
-				int *cur, int *idx);
-extern void mtk_pdc_init_table(struct charger_manager *info);
-extern bool mtk_pdc_init(struct charger_manager *info);
-extern int mtk_pdc_setup(struct charger_manager *info, int idx);
-extern void mtk_pdc_plugout(struct charger_manager *info);
-extern void mtk_pdc_check_cable_impedance(struct charger_manager *info);
-extern void mtk_pdc_reset(struct charger_manager *info);
-extern bool mtk_pdc_check_leave(struct charger_manager *info);
+struct mtk_pe20 {
+	struct mutex access_lock;
+	struct mutex pmic_sync_lock;
+	struct wakeup_source *suspend_lock;
+	int ta_vchr_org;
+	int idx;
+	int vbus;
+	bool to_check_chr_type;
+	bool is_cable_out_occur; /* Plug out happened while detect PE+20 */
+	bool is_connect;
+	bool is_enabled;
+	struct pe20_profile profile[10];
 
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT
+	int vbat_orig; /* Measured VBAT before cable impedance measurement */
+	int aicr_cable_imp; /* AICR to set after cable impedance measurement */
+};
 
+#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
 
+extern int mtk_pe20_init(struct charger_manager *pinfo);
+extern int mtk_pe20_reset_ta_vchr(struct charger_manager *pinfo);
+extern int mtk_pe20_check_charger(struct charger_manager *pinfo);
+extern int mtk_pe20_start_algorithm(struct charger_manager *pinfo);
+extern int mtk_pe20_set_charging_current(struct charger_manager *pinfo,
+					 unsigned int *ichg,
+					 unsigned int *aicr);
 
-#else /* NOT CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT */
+extern void mtk_pe20_set_to_check_chr_type(struct charger_manager *pinfo,
+					bool check);
+extern void mtk_pe20_set_is_enable(struct charger_manager *pinfo, bool enable);
+extern void mtk_pe20_set_is_cable_out_occur(struct charger_manager *pinfo,
+					bool out);
 
+extern bool mtk_pe20_get_to_check_chr_type(struct charger_manager *pinfo);
+extern bool mtk_pe20_get_is_connect(struct charger_manager *pinfo);
+extern bool mtk_pe20_get_is_enable(struct charger_manager *pinfo);
 
-#endif /* CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT */
+#else /* NOT CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT */
 
+static inline int mtk_pe20_init(struct charger_manager *pinfo)
+{
+	return -ENOTSUPP;
+}
 
-#endif /* __MTK_PD_INTF_H */
+static inline int mtk_pe20_reset_ta_vchr(struct charger_manager *pinfo)
+{
+	return -ENOTSUPP;
+}
+
+static inline int mtk_pe20_check_charger(struct charger_manager *pinfo)
+{
+	return -ENOTSUPP;
+}
+
+static inline int mtk_pe20_start_algorithm(struct charger_manager *pinfo)
+{
+	return -ENOTSUPP;
+}
+
+static inline int mtk_pe20_set_charging_current(struct charger_manager *pinfo,
+						unsigned int *ichg,
+						unsigned int *aicr)
+{
+	return -ENOTSUPP;
+}
+
+static inline void mtk_pe20_set_to_check_chr_type(struct charger_manager *pinfo,
+						  bool check)
+{
+}
+
+static inline void mtk_pe20_set_is_enable(struct charger_manager *pinfo,
+					   bool enable)
+{
+}
+
+static inline
+void mtk_pe20_set_is_cable_out_occur(struct charger_manager *pinfo, bool out)
+{
+}
+
+static inline bool mtk_pe20_get_to_check_chr_type(struct charger_manager *pinfo)
+{
+	return false;
+}
+
+static inline bool mtk_pe20_get_is_connect(struct charger_manager *pinfo)
+{
+	return false;
+}
+
+static inline bool mtk_pe20_get_is_enable(struct charger_manager *pinfo)
+{
+	return false;
+}
+
+#endif /* CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT */
+
+#endif /* __MTK_PE20_INTF_H__ */
