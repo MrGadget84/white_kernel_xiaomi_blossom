@@ -817,7 +817,6 @@ config CHARGER_BQ2560X
 	  It depends on
 	  the config MTK_CHARGER.
 
-
 config CHARGER_SGM41513
 	bool "CHARGER_SGM41513"
 	depends on MTK_CHARGER
