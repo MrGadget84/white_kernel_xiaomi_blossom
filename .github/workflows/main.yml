@@ -1,0 +1,2 @@
+- name: Find duplicates
+  run: grep -n "susfs_alloc" fs/namespace.c || echo "not found"
