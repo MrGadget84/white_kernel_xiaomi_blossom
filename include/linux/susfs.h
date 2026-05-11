@@ -1,6 +1,8 @@
 #ifndef KSU_SUSFS_H
 #define KSU_SUSFS_H
 
+#define SUSFS_MAGIC 0x53555346
+
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/utsname.h>
