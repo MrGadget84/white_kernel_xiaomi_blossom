@@ -45,7 +45,7 @@ do {								\
 struct mtk_charger;
 #define BATTERY_CV 4400000
 #define V_CHARGER_MAX 6300000 /* 6.3 V */
-#define V_CHARGER_MIN 4000000 /* 4.0 V */
+#define V_CHARGER_MIN 5000000 /* 5.0 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
 #define USB_CHARGER_CURRENT_UNCONFIGURED	3200000 /* 3200mA */
@@ -57,8 +57,8 @@ struct mtk_charger;
 #define CHARGING_HOST_CHARGER_CURRENT		3200000
 
 /* dynamic mivr */
-#define V_CHARGER_MIN_1 4200000 /* 4.2 V */
-#define V_CHARGER_MIN_2 4000000 /* 4.0 V */
+#define V_CHARGER_MIN_1 5100000 /* 5.1 V */
+#define V_CHARGER_MIN_2 4600000 /* 4.6 V */
 #define MAX_DMIVR_CHARGER_CURRENT 3200000 /* 3.2 A */
 
 
