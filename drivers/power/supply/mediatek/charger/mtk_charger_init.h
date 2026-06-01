@@ -10,8 +10,8 @@
 #define CV_HIGH_THRESHOLD 4500000
 #define V_CHARGER_MAX 6300000 /* 6.3 V */
 #define HV_CHARGER_MAX 10400000 /* 10.4 V */
-#define V_CHARGER_DROP 1200000 /* 1.2 V */
-#define V_CHARGER_MIN 4000000 /* 4.0 V */
+#define V_CHARGER_DROP 2500000 /* 2.5 V */
+#define V_CHARGER_MIN 5000000 /* 5.0 V */
 #define HV_CHARGER_MIN 8000000 /* 8.0 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
@@ -31,8 +31,8 @@
 #define PD_VOLTAGE_THR 8000
 
 /* dynamic mivr */
-#define V_CHARGER_MIN_1 4200000 /* 4.2 V */
-#define V_CHARGER_MIN_2 4000000 /* 4.0 V */
+#define V_CHARGER_MIN_1 5100000 /* 5.1 V */
+#define V_CHARGER_MIN_2 4600000 /* 4.6 V */
 #define MAX_DMIVR_CHARGER_CURRENT 3200000 /* 3.2 А */
 
 
